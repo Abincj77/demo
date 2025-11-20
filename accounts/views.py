@@ -21,25 +21,78 @@ class RegisterView(APIView):
         password = request.data.get("password")
 
         if not email or not password or not username:
-            return Response({"error": "email, username, password required"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "status":"registration failed",
+                "response_code":400,
+                "message":"email, username, password required",
+            })
+            
 
         if User.objects.filter(email=email).exists():
-            return Response({"error": "Email already exists"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "status":"Email already exists",
+                "response_code":400,
+                "message":"Email already exists",
+            })
 
         user = User.objects.create(
             email=email,
             username=username,
             password=make_password(password),
         )
+        return Response({
+                "status":"registered successfully",
+                "response_code":201,
+                "message":"registered successfully",
+            })
 
-        return Response({"message": "User registered successfully"},
-                        status=status.HTTP_201_CREATED)
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-class LoginView(TokenObtainPairView):
-    pass  # no custom serializer needed
+    def post(self,request):
+        email = request.data.get("email")
+        password = request.data.get("password")
 
+        if not email or not password:
+            return Response({
+                "status":"login failed",
+                "response_code":400,
+                "message":"email and password must be required!",   
+            })
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({
+                "status":"login failed",
+                "response_code":401,
+                "message":"invalid email or password",
+            })
+        
+        if not user.check_password(password):
+            return Response({
+                "status":"login failed",
+                "response_code":401,
+                "message":"invalid email or password!",
+            })
+        
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            "status":"login success",
+            "response_code":200,
+            "message":"Login successful",
+            "user":{
+                "id":user.id,
+                "email":user.email,
+                "username":user.username
+            },
+            "token":{
+                "refresh":str(refresh),
+                "access": str(refresh.access_token)
+            }
+        })
 
 class LogoutView(APIView):
 
@@ -48,22 +101,28 @@ class LogoutView(APIView):
 
         if not refresh_token:
             return Response(
-                {"detail": "Refresh token is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                {
+                "status":"logou failed!",
+                "response_code":400,
+                "message":"invalid email or password!",
+            }
             )
 
-        # try:
-        token = RefreshToken(refresh_token)
-        print(token)
-        token.blacklist()
-        print("hgfdedrftgyhunjkm,")
-        return Response(
-            {"detail": "Logout successful"},
-            status=status.HTTP_205_RESET_CONTENT
-        )
-        # return Response("hai")
-        # except Exception:
-        #     return Response(
-        #         {"detail": "Invalid refresh token"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
+        try:
+            token = RefreshToken(refresh_token)
+            print(token)
+            token.blacklist()
+            print("hgfdedrftgyhunjkm,")
+            return Response({
+                
+                "status":"logot completer",
+                "response_code":205,
+                "message":"logout succesfull",
+            })
+        except Exception:
+                return Response({
+                        "status":"Invalid refresh token",
+                        "response_code":400,
+                        "message":"Invalid refresh token",
+                        })
+
